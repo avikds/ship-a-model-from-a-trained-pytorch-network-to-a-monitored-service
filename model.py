@@ -192,8 +192,34 @@ def train_model(X, y, seed=0, epochs=8, lr=1e-2, batch_size=64, hidden=32):
     # Return the trained model and per-epoch average training losses.
     return model, epoch_losses
 
-# Step 5 - predict_proba (not yet solved)
-# TODO: implement
+# Step 5 - predict_proba
+def predict_proba(model, X):
+    """Probability of class 1 for each row, as a NumPy array, in eval mode without gradients."""
+
+    # Switch the model to evaluation mode.
+    model.eval()
+
+    # Get the device on which the model is currently stored.
+    device = next(model.parameters()).device
+
+    # Convert input data into a float32 tensor on the model's device.
+    X_tensor = torch.as_tensor(X, dtype=torch.float32, device=device)
+
+    # Support a single feature vector as well as a batch of feature vectors.
+    if X_tensor.ndim == 1:
+        X_tensor = X_tensor.unsqueeze(0)
+
+    # Disable gradient tracking during inference.
+    with torch.no_grad():
+
+        # Obtain the model's raw classification logits.
+        logits = model(X_tensor)
+
+        # Convert logits into probabilities and select class 1 (late delivery).
+        probabilities = torch.softmax(logits, dim=1)[:, 1]
+
+    # Move predictions to the CPU and return them as a 1-D NumPy array.
+    return probabilities.cpu().numpy()
 
 # Step 6 - validate_request (not yet solved)
 # TODO: implement

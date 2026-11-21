@@ -14,7 +14,7 @@ python scaffold.py
 - [x] **2.** make_loader
 - [x] **3.** DeliveryNet
 - [x] **4.** train_model
-- [ ] **5.** predict_proba
+- [x] **5.** predict_proba
 - [ ] **6.** validate_request
 - [ ] **7.** save_artifact
 - [ ] **8.** load_artifact
