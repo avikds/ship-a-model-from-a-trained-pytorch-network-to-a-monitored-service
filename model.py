@@ -531,8 +531,137 @@ def quantize_weights(model, bits=8):
 
     return quantized_model, size
 
-# Step 12 - drift_report (not yet solved)
-# TODO: implement
+# Step 12 - drift_report
+def drift_report(reference, live, names, bins=10, threshold=0.2):
+    """Calculate PSI per column and identify columns above the drift threshold."""
+
+    # Convert the reference and live datasets into NumPy arrays.
+    reference = np.asarray(reference)
+    live = np.asarray(live)
+
+    # Support one-dimensional inputs as a single-feature dataset.
+    if reference.ndim == 1:
+        reference = reference.reshape(-1, 1)
+
+    if live.ndim == 1:
+        live = live.reshape(-1, 1)
+
+    # Validate the dataset dimensions.
+    if reference.ndim != 2 or live.ndim != 2:
+        raise ValueError("reference and live must be two-dimensional arrays")
+
+    if reference.shape[1] != live.shape[1] or reference.shape[1] != len(names):
+        raise ValueError("The number of columns must match the feature names")
+
+    if reference.shape[0] == 0 or live.shape[0] == 0:
+        raise ValueError("reference and live must contain at least one row")
+
+    if isinstance(bins, bool) or not isinstance(bins, (int, np.integer)) or bins < 1:
+        raise ValueError("bins must be a positive integer")
+
+    # Store PSI values and drifted feature names.
+    psi_results = {}
+    drifted = []
+
+    # Compare each feature independently.
+    for column, name in enumerate(names):
+
+        # Extract the reference and live values for the current feature.
+        ref_col = reference[:, column]
+        live_col = live[:, column]
+
+        # Determine the distinct values in the reference column.
+        unique_values = np.unique(ref_col)
+
+        # Case 1: Discrete feature with at most 'bins' distinct values.
+        if len(unique_values) <= bins:
+
+            # Create one bucket per distinct reference value,
+            # plus one additional bucket for previously unseen live values.
+            ref_counts = np.append(
+                np.unique(ref_col, return_counts=True)[1],
+                0
+            )
+
+            live_counts = np.zeros(len(unique_values) + 1, dtype=np.int64)
+
+            # Count the live occurrences of each reference value.
+            for i, value in enumerate(unique_values):
+                live_counts[i] = np.count_nonzero(live_col == value)
+
+            # Count live values that never appeared in the reference data.
+            unseen_mask = ~np.isin(live_col, unique_values)
+            live_counts[-1] = np.count_nonzero(unseen_mask)
+
+        # Case 2: Continuous feature with more than 'bins' distinct values.
+        else:
+
+            # Calculate reference quantile boundaries and remove duplicates.
+            quantiles = np.linspace(0.0, 1.0, bins + 1)
+
+            edges = np.unique(
+                np.quantile(ref_col, quantiles)
+            )
+
+            # Each interval corresponds to one bucket.
+            # max(1, ...) also handles collapsed quantile boundaries.
+            num_buckets = max(1, len(edges) - 1)
+
+            # Only inner edges are used for assigning buckets.
+            inner_edges = edges[1:-1]
+
+            # Assign values to the bucket on the right of every
+            # inner edge that the value is greater than or equal to.
+            # This also captures values outside the reference range.
+            ref_indices = np.searchsorted(
+                inner_edges,
+                ref_col,
+                side="right"
+            )
+
+            live_indices = np.searchsorted(
+                inner_edges,
+                live_col,
+                side="right"
+            )
+
+            # Count the reference and live observations in each bucket.
+            ref_counts = np.bincount(
+                ref_indices,
+                minlength=num_buckets
+            )
+
+            live_counts = np.bincount(
+                live_indices,
+                minlength=num_buckets
+            )
+
+        # Convert bucket counts into proportions.
+        ref_shares = ref_counts / len(ref_col)
+        live_shares = live_counts / len(live_col)
+
+        # Prevent zero probabilities in the PSI logarithm.
+        ref_shares = np.maximum(ref_shares, 1e-6)
+        live_shares = np.maximum(live_shares, 1e-6)
+
+        # Calculate Population Stability Index.
+        psi_value = np.sum(
+            (live_shares - ref_shares)
+            * np.log(live_shares / ref_shares)
+        )
+
+        # Store the PSI value rounded to four decimal places.
+        psi_results[name] = round(float(psi_value), 4)
+
+        # Identify features whose unrounded PSI exceeds the threshold.
+        if psi_value > threshold:
+            drifted.append(name)
+
+    # Return the PSI report and drifted feature names.
+    return {
+        "psi": psi_results,
+        "drifted": drifted
+    }
 
 # Step 13 - shadow_compare (not yet solved)
 # TODO: implement

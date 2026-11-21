@@ -21,7 +21,7 @@ python scaffold.py
 - [x] **9.** export_model
 - [x] **10.** batch_predict
 - [x] **11.** quantize_weights
-- [ ] **12.** drift_report
+- [x] **12.** drift_report
 - [ ] **13.** shadow_compare
 
 ---
