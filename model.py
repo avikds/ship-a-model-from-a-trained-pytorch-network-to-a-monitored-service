@@ -317,8 +317,48 @@ def save_artifact(model, metadata):
     # Return the serialized artifact as bytes.
     return buffer.getvalue()
 
-# Step 8 - load_artifact (not yet solved)
-# TODO: implement
+# Step 8 - load_artifact
+def load_artifact(blob):
+    """Rebuild a DeliveryNet from save_artifact bytes; return (model in eval mode, metadata)."""
+
+    # Wrap the serialized bytes in an in-memory binary buffer.
+    buffer = io.BytesIO(blob)
+
+    # Safely load the serialized artifact and map tensors to the CPU.
+    artifact = torch.load(
+        buffer,
+        map_location="cpu",
+        weights_only=True
+    )
+
+    # Extract the saved model state dictionary.
+    state_dict = artifact["state_dict"]
+
+    # Retrieve the preprocessing parameters stored as model buffers.
+    mean = state_dict["mean"]
+    std = state_dict["std"]
+
+    # Retrieve the hidden layer width used by the original model.
+    hidden = artifact["hidden"]
+
+    # Reconstruct the DeliveryNet with the original architecture
+    # and preprocessing parameters.
+    model = DeliveryNet(
+        mean=mean,
+        std=std,
+        hidden=hidden
+    )
+
+    # Restore the original model parameters and registered buffers.
+    model.load_state_dict(state_dict)
+
+    # Set the reconstructed model to evaluation mode.
+    model.eval()
+
+    # Return the reconstructed model and a copy of its metadata.
+    metadata = dict(artifact["metadata"])
+
+    return model, metadata
 
 # Step 9 - export_model (not yet solved)
 # TODO: implement
