@@ -441,8 +441,95 @@ def batch_predict(model, rows, max_batch=32):
     # Return the probabilities and total number of forward passes.
     return probabilities, calls
 
-# Step 11 - quantize_weights (not yet solved)
-# TODO: implement
+# Step 11 - quantize_weights
+import copy
+
+
+def quantize_weights(model, bits=8):
+    """Copy of model with per-row symmetric fake-quantized Linear weights, and its size report."""
+
+    # Validate the requested quantization bit width.
+    if isinstance(bits, bool) or not isinstance(bits, int) or bits < 2:
+        raise ValueError("bits must be an integer greater than or equal to 2")
+
+    # Calculate the maximum representable positive integer.
+    L = 2 ** (bits - 1) - 1
+
+    # Create an independent copy so the original model remains unchanged.
+    quantized_model = copy.deepcopy(model)
+
+    # Initialize counters for model storage calculations.
+    weights = 0
+    biases = 0
+    rows = 0
+
+    # Quantize weights without tracking gradients.
+    with torch.no_grad():
+
+        # Process every Linear layer in the copied model.
+        for layer in quantized_model.modules():
+
+            if isinstance(layer, nn.Linear):
+
+                # Retrieve the weight matrix.
+                # Each row represents one output feature.
+                weight = layer.weight
+
+                # Calculate the maximum absolute weight in each output row.
+                row_max = weight.abs().amax(dim=1, keepdim=True)
+
+                # Calculate one symmetric quantization scale per row.
+                # Use a scale of 1 for rows containing only zeros.
+                scale = torch.where(
+                    row_max == 0,
+                    torch.ones_like(row_max),
+                    row_max / L
+                )
+
+                # Quantize weights by rounding to integers,
+                # clamping to the representable range, and dequantizing.
+                quantized_weight = (
+                    torch.round(weight / scale)
+                    .clamp(min=-L, max=L)
+                    * scale
+                )
+
+                # Replace the copied model's weights with quantized values.
+                layer.weight.copy_(quantized_weight)
+
+                # Count the total number of weights and output rows.
+                weights += weight.numel()
+                rows += weight.shape[0]
+
+                # Count biases, when the Linear layer has them.
+                if layer.bias is not None:
+                    biases += layer.bias.numel()
+
+    # Calculate the original model's storage requirements.
+    # Each float32 weight and bias requires 4 bytes.
+    float_bytes = 4 * (weights + biases)
+
+    # Estimate quantized storage:
+    # - Quantized weights: bits per weight.
+    # - Row scales: 4 bytes per output row.
+    # - Biases: 4 bytes per bias.
+    quantized_bytes = (
+        (weights * bits) // 8
+        + 4 * rows
+        + 4 * biases
+    )
+
+    # Calculate the compression ratio.
+    ratio = round(float_bytes / quantized_bytes, 2)
+
+    # Return the independent quantized model and storage report.
+    size = {
+        "float_bytes": float_bytes,
+        "quantized_bytes": quantized_bytes,
+        "ratio": ratio
+    }
+
+    return quantized_model, size
 
 # Step 12 - drift_report (not yet solved)
 # TODO: implement
