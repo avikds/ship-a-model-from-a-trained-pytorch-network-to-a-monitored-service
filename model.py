@@ -221,8 +221,73 @@ def predict_proba(model, X):
     # Move predictions to the CPU and return them as a 1-D NumPy array.
     return probabilities.cpu().numpy()
 
-# Step 6 - validate_request (not yet solved)
-# TODO: implement
+# Step 6 - validate_request
+def validate_request(payload):
+    """Return (row, []) for a valid request, or (None, errors) otherwise."""
+
+    # Define the required fields, their valid ranges, and whether they
+    # must contain whole-number values.
+    field_rules = {
+        "distance_km": (0, 100, False),
+        "items": (1, 50, True),
+        "hour": (0, 23, True),
+        "driver_rating": (1, 5, False),
+        "traffic_index": (0, 2, False),
+        "rain": (0, 1, True),
+    }
+
+    errors = []
+    row = []
+
+    # Validate each required field in the specified order.
+    for field, (minimum, maximum, must_be_whole) in field_rules.items():
+
+        # Check whether the field is missing or explicitly set to None.
+        if field not in payload or payload[field] is None:
+            errors.append(f"missing: {field}")
+            continue
+
+        value = payload[field]
+
+        # Reject booleans, even though Python treats bool as a subclass of int.
+        # Accept standard Python and NumPy integer and floating-point values.
+        if isinstance(value, (bool, np.bool_)) or not isinstance(
+            value, (int, float, np.integer, np.floating)
+        ):
+            errors.append(f"not a number: {field}")
+            continue
+
+        # Convert the numeric value to a Python float.
+        numeric_value = float(value)
+
+        # Items, hour, and rain must contain whole-number values.
+        # Values such as 3 and 3.0 are both accepted.
+        if must_be_whole and not numeric_value.is_integer():
+            errors.append(f"not a whole number: {field}")
+            continue
+
+        # Check the inclusive lower and upper bounds.
+        if not minimum <= numeric_value <= maximum:
+            errors.append(f"out of range: {field}")
+            continue
+
+        # Append the validated value as a float.
+        row.append(numeric_value)
+
+    # Report every unexpected field, sorted alphabetically by name.
+    unknown_fields = sorted(
+        (key for key in payload if key not in field_rules),
+        key=str
+    )
+
+    for name in unknown_fields:
+        errors.append(f"unknown field: {name}")
+
+    # Return the validated feature row only if there are no errors.
+    if errors:
+        return None, errors
+
+    return row, []
 
 # Step 7 - save_artifact (not yet solved)
 # TODO: implement
