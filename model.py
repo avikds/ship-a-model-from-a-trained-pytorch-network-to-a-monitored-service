@@ -289,8 +289,33 @@ def validate_request(payload):
 
     return row, []
 
-# Step 7 - save_artifact (not yet solved)
-# TODO: implement
+# Step 7 - save_artifact
+import io
+
+
+def save_artifact(model, metadata):
+    """Serialize the model state dict, hidden width, and metadata into bytes."""
+
+    # Create an in-memory binary buffer.
+    buffer = io.BytesIO()
+
+    # Package the model information into a dictionary.
+    artifact = {
+        # Include model weights and registered preprocessing buffers.
+        "state_dict": model.state_dict(),
+
+        # Store the width of the first hidden layer.
+        "hidden": model.layers[0].out_features,
+
+        # Store an independent dictionary copy of the metadata.
+        "metadata": dict(metadata)
+    }
+
+    # Serialize the artifact into the in-memory buffer.
+    torch.save(artifact, buffer)
+
+    # Return the serialized artifact as bytes.
+    return buffer.getvalue()
 
 # Step 8 - load_artifact (not yet solved)
 # TODO: implement
