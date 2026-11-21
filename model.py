@@ -386,8 +386,60 @@ def export_model(model, example_input):
     # Return the serialized TorchScript model as bytes.
     return buffer.getvalue()
 
-# Step 10 - batch_predict (not yet solved)
-# TODO: implement
+# Step 10 - batch_predict
+def batch_predict(model, rows, max_batch=32):
+    """Return probabilities in request order and the number of forward passes."""
+
+    # Ensure that the batch size is a positive integer.
+    if not isinstance(max_batch, int) or isinstance(max_batch, bool) or max_batch <= 0:
+        raise ValueError("max_batch must be a positive integer")
+
+    # Put the model into evaluation mode.
+    model.eval()
+
+    # Handle empty input without making any forward passes.
+    if len(rows) == 0:
+        return [], 0
+
+    # Determine the device on which the model is stored.
+    device = next(model.parameters()).device
+
+    # Convert all incoming rows into a float32 tensor.
+    rows_tensor = torch.as_tensor(
+        rows,
+        dtype=torch.float32,
+        device=device
+    )
+
+    # Store probabilities in their original request order.
+    probabilities = []
+
+    # Track the total number of model forward passes.
+    calls = 0
+
+    # Disable gradient tracking during inference.
+    with torch.no_grad():
+
+        # Process requests in consecutive chunks of at most max_batch.
+        for start in range(0, len(rows_tensor), max_batch):
+
+            # Extract the current batch.
+            batch = rows_tensor[start:start + max_batch]
+
+            # Perform one forward pass for the current batch.
+            logits = model(batch)
+
+            # Calculate the probability of class 1 (late delivery).
+            batch_probs = torch.softmax(logits, dim=1)[:, 1]
+
+            # Append probabilities while preserving the original order.
+            probabilities.extend(batch_probs.cpu().tolist())
+
+            # Increment the forward-pass counter.
+            calls += 1
+
+    # Return the probabilities and total number of forward passes.
+    return probabilities, calls
 
 # Step 11 - quantize_weights (not yet solved)
 # TODO: implement
