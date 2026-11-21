@@ -22,7 +22,7 @@ python scaffold.py
 - [x] **10.** batch_predict
 - [x] **11.** quantize_weights
 - [x] **12.** drift_report
-- [ ] **13.** shadow_compare
+- [x] **13.** shadow_compare
 
 ---
 

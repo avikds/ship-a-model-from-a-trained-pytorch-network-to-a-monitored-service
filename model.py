@@ -663,6 +663,86 @@ def drift_report(reference, live, names, bins=10, threshold=0.2):
         "drifted": drifted
     }
 
-# Step 13 - shadow_compare (not yet solved)
-# TODO: implement
+# Step 13 - shadow_compare
+def shadow_compare(
+    prod_probs,
+    cand_probs,
+    labels,
+    min_labeled=200,
+    min_gain=0.01,
+    threshold=0.5
+):
+    """Calculate agreement, labeled accuracies, and promote / hold / reject decision."""
+
+    # Convert probabilities and labels into NumPy arrays.
+    # Float conversion allows labels to contain np.nan.
+    prod_probs = np.asarray(prod_probs, dtype=float)
+    cand_probs = np.asarray(cand_probs, dtype=float)
+    labels = np.asarray(labels, dtype=float)
+
+    # Ensure all inputs are one-dimensional arrays of equal length.
+    if prod_probs.ndim != 1 or cand_probs.ndim != 1 or labels.ndim != 1:
+        raise ValueError("All inputs must be one-dimensional arrays")
+
+    if not (len(prod_probs) == len(cand_probs) == len(labels)):
+        raise ValueError("Production probabilities, candidate probabilities, and labels must have equal lengths")
+
+    # Convert probabilities into binary predictions.
+    # A probability greater than or equal to the threshold predicts class 1.
+    prod_preds = (prod_probs >= threshold).astype(int)
+    cand_preds = (cand_probs >= threshold).astype(int)
+
+    # Calculate the agreement between both models across all requests.
+    # Return 0.0 for an empty request set to avoid an undefined mean.
+    agreement = (
+        float(np.mean(prod_preds == cand_preds))
+        if len(prod_preds) > 0
+        else 0.0
+    )
+
+    # Identify requests whose actual outcomes are known.
+    # np.nan represents an unknown outcome.
+    labeled_mask = ~np.isnan(labels)
+
+    # Count the number of labeled requests.
+    labeled = int(np.sum(labeled_mask))
+
+    # If insufficient labeled outcomes are available, do not make
+    # a production replacement decision.
+    if labeled < min_labeled:
+        return {
+            "agreement": agreement,
+            "labeled": labeled,
+            "prod_accuracy": None,
+            "cand_accuracy": None,
+            "decision": "hold"
+        }
+
+    # Calculate production model accuracy using only labeled requests.
+    prod_accuracy = float(
+        np.mean(prod_preds[labeled_mask] == labels[labeled_mask])
+    )
+
+    # Calculate candidate model accuracy using only labeled requests.
+    cand_accuracy = float(
+        np.mean(cand_preds[labeled_mask] == labels[labeled_mask])
+    )
+
+    # Promote the candidate only when its accuracy improves over
+    # production accuracy by at least the required minimum gain.
+    if cand_accuracy >= prod_accuracy + min_gain:
+        decision = "promote"
+
+    # Reject the candidate if it does not meet the improvement requirement.
+    else:
+        decision = "reject"
+
+    # Return the complete shadow comparison report.
+    return {
+        "agreement": agreement,
+        "labeled": labeled,
+        "prod_accuracy": prod_accuracy,
+        "cand_accuracy": cand_accuracy,
+        "decision": decision
+    }
 
