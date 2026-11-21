@@ -360,8 +360,31 @@ def load_artifact(blob):
 
     return model, metadata
 
-# Step 9 - export_model (not yet solved)
-# TODO: implement
+# Step 9 - export_model
+def export_model(model, example_input):
+    """Trace the model in eval mode and return TorchScript bytes."""
+
+    # Switch the model to evaluation mode before tracing.
+    model.eval()
+
+    # Disable gradient tracking during the tracing process.
+    with torch.no_grad():
+
+        # Trace the model using the provided example input.
+        # Tracing records the operations performed by the model.
+        traced_model = torch.jit.trace(
+            model,
+            example_input
+        )
+
+    # Create an in-memory binary buffer for the TorchScript model.
+    buffer = io.BytesIO()
+
+    # Serialize the traced model into the buffer.
+    torch.jit.save(traced_model, buffer)
+
+    # Return the serialized TorchScript model as bytes.
+    return buffer.getvalue()
 
 # Step 10 - batch_predict (not yet solved)
 # TODO: implement

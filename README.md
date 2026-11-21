@@ -18,7 +18,7 @@ python scaffold.py
 - [x] **6.** validate_request
 - [x] **7.** save_artifact
 - [x] **8.** load_artifact
-- [ ] **9.** export_model
+- [x] **9.** export_model
 - [ ] **10.** batch_predict
 - [ ] **11.** quantize_weights
 - [ ] **12.** drift_report
