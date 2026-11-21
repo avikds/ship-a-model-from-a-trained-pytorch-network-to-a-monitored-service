@@ -11,7 +11,7 @@ python scaffold.py
 ## Steps
 
 - [x] **1.** set_seed
-- [ ] **2.** make_loader
+- [x] **2.** make_loader
 - [ ] **3.** DeliveryNet
 - [ ] **4.** train_model
 - [ ] **5.** predict_proba

@@ -50,8 +50,34 @@ def set_seed(seed):
     # Set the random seed for PyTorch (CPU and CUDA devices).
     torch.manual_seed(seed)
 
-# Step 2 - make_loader (not yet solved)
-# TODO: implement
+# Step 2 - make_loader
+from torch.utils.data import DataLoader, TensorDataset
+
+
+def make_loader(X, y, batch_size=64, seed=0, shuffle=True):
+    """Create a reproducible DataLoader over float32 features and int64 labels."""
+
+    # Convert features and labels into tensors with the required data types.
+    X_tensor = torch.as_tensor(X, dtype=torch.float32)
+    y_tensor = torch.as_tensor(y, dtype=torch.int64)
+
+    # Combine features and labels into a single dataset.
+    dataset = TensorDataset(X_tensor, y_tensor)
+
+    # Create a dedicated random generator so that data shuffling
+    # does not depend on PyTorch's global random-number generator.
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+
+    # Return a DataLoader using the dedicated seeded generator.
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        generator=generator
+    )
+
+    return loader
 
 # Step 3 - DeliveryNet (not yet solved)
 # TODO: implement
