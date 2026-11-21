@@ -79,8 +79,46 @@ def make_loader(X, y, batch_size=64, seed=0, shuffle=True):
 
     return loader
 
-# Step 3 - DeliveryNet (not yet solved)
-# TODO: implement
+# Step 3 - DeliveryNet
+from torch import nn
+
+
+class DeliveryNet(nn.Module):
+    """MLP that standardizes raw inputs with stored mean/std buffers and returns 2 logits."""
+
+    def __init__(self, mean, std, hidden=32):
+        super().__init__()
+
+        # Store independent float32 copies of the preprocessing parameters.
+        # Registered buffers are saved in state_dict() but are not trainable parameters.
+        self.register_buffer(
+            "mean",
+            torch.as_tensor(mean, dtype=torch.float32).clone()
+        )
+
+        self.register_buffer(
+            "std",
+            torch.as_tensor(std, dtype=torch.float32).clone()
+        )
+
+        # Determine the number of input features from the mean vector.
+        n_features = len(self.mean)
+
+        # Define the neural network architecture.
+        self.layers = nn.Sequential(
+            nn.Linear(n_features, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, 2)
+        )
+
+    def forward(self, x):
+        # Standardize raw input features using the stored mean and standard deviation.
+        x = (x - self.mean) / self.std
+
+        # Pass the standardized features through the neural network.
+        return self.layers(x)
 
 # Step 4 - train_model (not yet solved)
 # TODO: implement

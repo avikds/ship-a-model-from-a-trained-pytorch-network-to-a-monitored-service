@@ -12,7 +12,7 @@ python scaffold.py
 
 - [x] **1.** set_seed
 - [x] **2.** make_loader
-- [ ] **3.** DeliveryNet
+- [x] **3.** DeliveryNet
 - [ ] **4.** train_model
 - [ ] **5.** predict_proba
 - [ ] **6.** validate_request
