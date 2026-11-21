@@ -120,8 +120,77 @@ class DeliveryNet(nn.Module):
         # Pass the standardized features through the neural network.
         return self.layers(x)
 
-# Step 4 - train_model (not yet solved)
-# TODO: implement
+# Step 4 - train_model
+def train_model(X, y, seed=0, epochs=8, lr=1e-2, batch_size=64, hidden=32):
+    """Seeded training of a DeliveryNet; returns (model, per-epoch mean losses)."""
+
+    # Step 1: Seed Python, NumPy, and PyTorch random number generators.
+    set_seed(seed)
+
+    # Step 2: Convert the input features to a float32 PyTorch tensor.
+    X_tensor = torch.as_tensor(X, dtype=torch.float32)
+
+    # Calculate the mean and population standard deviation of each feature.
+    mean = X_tensor.mean(dim=0)
+    std = X_tensor.std(dim=0, unbiased=False)
+
+    # Prevent division by zero or extremely small standard deviations.
+    std = std.clamp_min(1e-6)
+
+    # Step 3: Initialize the model with its preprocessing parameters.
+    model = DeliveryNet(mean, std, hidden=hidden)
+
+    # Step 4: Create a reproducible DataLoader using the specified seed.
+    loader = make_loader(
+        X,
+        y,
+        batch_size=batch_size,
+        seed=seed,
+        shuffle=True
+    )
+
+    # Define the Adam optimizer and cross-entropy loss function.
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss()
+
+    # Store the average training loss for each epoch.
+    epoch_losses = []
+
+    # Step 5: Train the model for the specified number of epochs.
+    model.train()
+
+    for epoch in range(epochs):
+        total_loss = 0.0
+        total_examples = 0
+
+        for batch_X, batch_y in loader:
+
+            # Clear gradients from the previous optimization step.
+            optimizer.zero_grad()
+
+            # Forward pass: obtain the model's two-class logits.
+            logits = model(batch_X)
+
+            # Calculate cross-entropy loss for the current batch.
+            loss = criterion(logits, batch_y)
+
+            # Backward pass: calculate gradients.
+            loss.backward()
+
+            # Update model parameters using Adam.
+            optimizer.step()
+
+            # Accumulate loss weighted by the number of examples.
+            batch_examples = batch_X.size(0)
+            total_loss += loss.item() * batch_examples
+            total_examples += batch_examples
+
+        # Calculate the average loss across all examples in this epoch.
+        average_loss = total_loss / total_examples
+        epoch_losses.append(average_loss)
+
+    # Return the trained model and per-epoch average training losses.
+    return model, epoch_losses
 
 # Step 5 - predict_proba (not yet solved)
 # TODO: implement
